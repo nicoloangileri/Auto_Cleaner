@@ -37,6 +37,8 @@ class FileProfile:
     encoding: str = "utf-8"
     separator: str | None = None
     has_header: bool = True
+    skip_rows: int = 0
+    """Junk preamble lines (titles, export banners) before the real header."""
 
 
 def _read_head_bytes(path: Path, n: int = 16) -> bytes:
@@ -217,6 +219,36 @@ def detect_header(sample: str, delimiter: str) -> bool:
     return _numeric_share(first) + 0.25 < _numeric_share(second) or _numeric_share(first) == 0.0
 
 
+_MAX_PREAMBLE_LINES = 10
+
+
+def detect_preamble(sample: str, delimiter: str) -> int:
+    """Count junk lines (titles, export banners) before the real table.
+
+    Real exports often open with a caption line — e.g. NASA's GISTEMP CSV
+    starts with ``Land-Ocean: Global Means`` before the header. Reading that
+    line as the header would collapse the table to one misnamed column. A line
+    is preamble when its (quote-aware) field count differs from the *modal*
+    field count of the sample; the table starts at the first modal-width line.
+    """
+    lines = [ln for ln in sample.splitlines() if ln.strip()][: 200]
+    if len(lines) < 3:
+        return 0
+    counts = []
+    for ln in lines:
+        try:
+            counts.append(len(next(csv.reader([ln], delimiter=delimiter), [])))
+        except csv.Error:
+            counts.append(len(ln.split(delimiter)))
+    modal = statistics.mode(counts)
+    if modal < 2:
+        return 0
+    for i, c in enumerate(counts[:_MAX_PREAMBLE_LINES + 1]):
+        if c == modal:
+            return i
+    return 0
+
+
 def profile_source(path: str | Path, sample_rows: int = 4096) -> FileProfile:
     """Produce a :class:`FileProfile` describing how to open ``path``."""
     p = Path(path)
@@ -231,6 +263,9 @@ def profile_source(path: str | Path, sample_rows: int = 4096) -> FileProfile:
     with p.open("r", encoding=encoding, errors="replace", newline="") as fh:
         sample = "".join(next(fh, "") for _ in range(min(sample_rows, 200)))
     delimiter = detect_delimiter(sample)
+    skip_rows = detect_preamble(sample, delimiter)
+    if skip_rows:
+        sample = "\n".join(sample.splitlines()[skip_rows:])
     has_header = detect_header(sample, delimiter)
     return FileProfile(
         path=p,
@@ -238,4 +273,5 @@ def profile_source(path: str | Path, sample_rows: int = 4096) -> FileProfile:
         encoding=encoding,
         separator=delimiter,
         has_header=has_header,
+        skip_rows=skip_rows,
     )

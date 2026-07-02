@@ -76,6 +76,7 @@ def _report_csv_recovery(
             io.StringIO(text), delimiter=profile.separator or ",", quoting=quoting
         )
         counts = [len(row) for row in reader if row]
+        counts = counts[profile.skip_rows:]
         if profile.has_header and counts:
             counts = counts[1:]
         n_data = len(counts)
@@ -113,12 +114,19 @@ def _read_csv(profile: FileProfile, config: CleanConfig, report: StepReport) -> 
     common = dict(
         separator=profile.separator or ",",
         has_header=profile.has_header,
+        skip_rows=profile.skip_rows,
         null_values=_null_token_variants(config.csv_null_values),
         try_parse_dates=False,  # standardisation handles datetimes deterministically
         infer_schema_length=config.detection_sample_rows,
         ignore_errors=False,
         rechunk=True,
     )
+    if profile.skip_rows:
+        msg = (f"Skipped {profile.skip_rows} preamble line(s) before the header "
+               "(title/banner rows narrower than the table)")
+        report.act(msg)
+        report.measure("csv_preamble_lines", profile.skip_rows)
+        log(msg, "WARN", enabled=config.verbose)
     if config.streaming and isinstance(source, (str, Path)):
         try:
             df = _collect_streaming(
@@ -126,6 +134,7 @@ def _read_csv(profile: FileProfile, config: CleanConfig, report: StepReport) -> 
                     source,
                     separator=profile.separator or ",",
                     has_header=profile.has_header,
+                    skip_rows=profile.skip_rows,
                     null_values=_null_token_variants(config.csv_null_values),
                     try_parse_dates=False,
                     infer_schema_length=config.detection_sample_rows,

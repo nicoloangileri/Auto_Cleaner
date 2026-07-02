@@ -49,6 +49,7 @@ class CleanConfig:
         "-",
         "?",
         "#n/a",
+        "***",  # NASA GISTEMP-style missing marker
     )
     """Case-insensitive tokens treated as missing during CSV ingestion."""
     excel_sheet: str | None = None
