@@ -137,7 +137,9 @@ def _impute_categorical(
             method = f"constant '{fill}'"
         else:  # mode
             modes = df.get_column(c).drop_nulls().mode()
-            fill = modes[0] if modes.len() else config.categorical_fill_value
+            # Ties are returned in arbitrary order: sort for a deterministic
+            # fill (same input -> same output, run after run).
+            fill = modes.sort()[0] if modes.len() else config.categorical_fill_value
             method = f"mode '{fill}'"
         exprs.append(pl.col(c).fill_null(fill).alias(c))
         report.act(f"Imputed '{c}': {n_missing} null(s) via {method}")

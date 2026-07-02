@@ -242,6 +242,19 @@ def _real_validation_section(bench: list[dict]) -> tuple[str, list]:
         f"{taxi['elapsed_s']:.1f} seconds with the fast profile and streaming "
         "ingestion."
     ) if taxi else ""
+    probe_path = OUT_DIR / "scale_probe.json"
+    if scale and probe_path.exists():
+        probe = [r for r in json.loads(probe_path.read_text()) if "error" not in r]
+        if probe:
+            top = max(probe, key=lambda r: r["rows"])
+            rps = min(r["rows_per_s"] for r in probe)
+            scale += (
+                f" A measured scale probe over concatenated copies sustains "
+                f"over {rps // 1000},000 rows/second up to {top['rows']:,} rows "
+                f"({top['elapsed_s']:.0f} s, {top['peak_rss_gb']:.1f} GB peak "
+                "RSS) - the practical single-machine envelope before the "
+                "documented Spark/Ray hand-off."
+            )
     catch = ""
     if material:
         m = material[0]

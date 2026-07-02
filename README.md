@@ -257,7 +257,8 @@ pytest -q
 | Opt-in (advanced) | **Optuna** hyper-parameter tuning (`--tune`); **A/B test + observational causal IPW** (`--treatment`/`--outcome`, with prominent caveats — never auto-run); neural text embeddings |
 | Extended statistics | robust means (geometric/harmonic/trimmed/winsorized/MAD/Huber); rank, partial & categorical associations (Spearman/Kendall/partial/Cramer's V/eta); distribution fitting (AIC/BIC); multivariate (Mahalanobis, clustering, MANOVA, UMAP); classical NLP (LDA topics + sentiment); Bayes factors; survival (Kaplan-Meier, Cox); survey reliability (Cronbach's α + design weights) |
 | Reports & outputs | clean dataset (Parquet/CSV/Arrow); interactive offline **HTML** + **Markdown** + **PDF** reports; machine-readable **results.json**; standalone PNG charts; R companion + DuckDB SQL profiling |
-| Hardening | typed input/schema validation, YAML data contracts, 107 tests (incl. property-based ingestion fuzzing via Hypothesis) at 78% line coverage, GitHub Actions CI; validated unmodified on 10 real-world datasets across 9 domains (see the paper) |
+| Hardening | typed input/schema validation, YAML data contracts, 108 tests (property-based ingestion fuzzing via Hypothesis + a golden-file report test) at 78% line coverage; a versioned pre-commit hook runs the suite before every commit (`git config core.hooksPath .githooks`); validated unmodified on 10 real-world datasets across 9 domains (see the paper) |
+| Measured scale | ~500k rows/s sustained: 11.9M rows (4× NYC-taxi) cleaned + profiled in 26 s at 3.0 GB peak RSS (`examples/scale_probe.py`) |
 | Formats & scale | CSV/TSV (any delimiter), **Excel** (.xlsx/.xlsm/.xls via calamine), Parquet, JSON/NDJSON, DuckDB SQL, **FITS** (astronomy), **netCDF** (climate, via xarray); optional streaming / out-of-core ingestion for larger-than-memory data |
 
 ## Scope & honest limitations

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Local CI: the full test suite must pass before every commit.
+# Bypass consciously with:  SKIP_TESTS=1 git commit ...
+[ -n "$SKIP_TESTS" ] && exit 0
+
+echo "pre-commit: running the test suite (SKIP_TESTS=1 to bypass) ..."
+cd "$(git rev-parse --show-toplevel)" || exit 1
+PYTHONPATH=src .venv/bin/python -m pytest -q -x -p no:cacheprovider
+status=$?
+[ $status -ne 0 ] && echo "pre-commit: tests FAILED — commit blocked."
+exit $status
