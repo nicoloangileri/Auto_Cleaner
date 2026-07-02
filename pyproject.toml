@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto-cleaner"
+version = "1.0.0"
+description = "Autonomous, polars-native data preprocessing & automated EDA for ML-ready data."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "auto_cleaner" }]
+keywords = ["polars", "duckdb", "data-cleaning", "eda", "preprocessing", "quant"]
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+]
+
+# Core runtime deps. polars + numpy are mandatory; the rest unlock extra paths.
+dependencies = [
+    "polars>=1.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+sql = ["duckdb>=0.10"]          # SQL ingestion via DuckDB
+excel = ["fastexcel>=0.10"]     # Excel (.xlsx/.xlsm/.xls) ingestion via calamine
+ml = ["scikit-learn>=1.3"]      # Isolation Forest + KNN imputation
+parquet = ["pyarrow>=14"]       # Arrow interchange for SQL/Parquet
+# kaleido 1.x needs a one-time headless-Chrome install: `plotly_get_chrome`
+viz = ["plotly>=5.20", "kaleido>=1.0"]   # interactive charts + PNG export
+stats = ["scipy>=1.10"]                  # normality tests + power transforms
+inference = ["statsmodels>=0.14"]        # OLS/logit regression with p-values + CIs
+astro = ["astropy>=5.0"]                 # FITS ingestion
+climate = ["xarray>=2023.1", "netCDF4>=1.6"]  # netCDF gridded ingestion
+advstats = ["pingouin>=0.5", "lifelines>=0.27", "pymannkendall>=1.4", "umap-learn>=0.5"]
+nlp = ["vaderSentiment>=3.3"]            # classical sentiment
+embed = ["sentence-transformers>=2.2"]  # opt-in neural embeddings (heavy)
+pdf = ["fpdf2>=2.7"]                     # per-dataset PDF report
+all = [
+    "duckdb>=0.10", "fastexcel>=0.10", "scikit-learn>=1.3", "pyarrow>=14",
+    "plotly>=5.20", "kaleido>=1.0",
+    "scipy>=1.10", "statsmodels>=0.14", "astropy>=5.0", "xarray>=2023.1", "netCDF4>=1.6",
+    "pingouin>=0.5", "lifelines>=0.27", "pymannkendall>=1.4", "umap-learn>=0.5",
+    "vaderSentiment>=3.3", "fpdf2>=2.7",
+]
+dev = [
+    "pytest>=7", "duckdb>=0.10", "fastexcel>=0.10", "xlsxwriter>=3.0",
+    "scikit-learn>=1.3", "pyarrow>=14", "plotly>=5.20",
+    "kaleido>=1.0", "scipy>=1.10", "statsmodels>=0.14", "astropy>=5.0", "xarray>=2023.1",
+    "netCDF4>=1.6", "pingouin>=0.5", "lifelines>=0.27", "pymannkendall>=1.4",
+    "umap-learn>=0.5", "vaderSentiment>=3.3", "fpdf2>=2.7",
+]
+
+[project.scripts]
+auto-cleaner = "auto_cleaner.__main__:main"
+auto-cleaner-predict = "auto_cleaner.predict:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

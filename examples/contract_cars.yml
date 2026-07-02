@@ -1,0 +1,26 @@
+# Example data contract for the auto-mpg ("cars") dataset.
+# Usage:  python -m auto_cleaner -i raw_cars.csv -o clean.parquet --contract examples/contract_cars.yml
+#
+# Required-but-missing columns abort the run; dtype / null-rate / range /
+# allowed-value violations are reported as warnings.
+columns:
+  Miles_per_Gallon:
+    dtype: Float64
+    required: true
+    min: 0
+    max: 100
+    max_null_pct: 10        # at most 10% missing
+  Cylinders:
+    required: true
+    min: 2
+    max: 16
+  Horsepower:
+    required: true
+    min: 0
+    max_null_pct: 5
+  Weight_in_lbs:
+    required: true
+    min: 0
+  Origin:
+    required: true
+    allowed: [USA, Europe, Japan]

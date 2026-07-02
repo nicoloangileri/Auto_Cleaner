@@ -1,0 +1,59 @@
+# Core engine (mandatory)
+polars>=1.0
+numpy>=1.24
+
+# SQL ingestion (DuckDB) + Arrow interchange
+duckdb>=0.10
+
+# Excel (.xlsx/.xlsm/.xls) ingestion via the calamine engine
+fastexcel>=0.10
+pyarrow>=14
+
+# Multivariate outliers (Isolation Forest) + KNN imputation
+scikit-learn>=1.3
+
+# Advanced analysis: normality tests, Box-Cox/Yeo-Johnson transforms
+scipy>=1.10
+
+# Astronomy FITS ingestion (optional; only needed for .fits inputs)
+astropy>=5.0
+
+# Formal inference: OLS/logit regression with p-values + confidence intervals
+statsmodels>=0.14
+
+# Climate / gridded netCDF ingestion (optional; only needed for .nc inputs)
+xarray>=2023.1
+netCDF4>=1.6
+
+# Advanced statistics: effect sizes, partial corr, Cronbach, Bayes factors
+pingouin>=0.5
+# Survival analysis (Kaplan-Meier, Cox PH)
+lifelines>=0.27
+# Mann-Kendall trend test
+pymannkendall>=1.4
+# Lexicon sentiment for the NLP module
+vaderSentiment>=3.3
+# Embedding / high-dimensional projection
+umap-learn>=0.5
+# Model explainability (SHAP on tree models)
+shap>=0.44
+# Hyper-parameter tuning (opt-in, --tune)
+optuna>=3.0
+
+# Interactive EDA charts + standalone PNG export.
+# kaleido 1.x no longer bundles Chromium (and plotly>=6.8 rejects kaleido<1):
+# one-time setup on fresh machines → `plotly_get_chrome`
+# (or `python -c "import kaleido; kaleido.get_chrome_sync()"`)
+plotly>=5.20
+kaleido>=1.0
+# Per-dataset PDF report
+fpdf2>=2.7
+# YAML data contracts
+PyYAML>=6.0
+
+# Optional, heavy: neural text embeddings (opt-in via --... / config)
+# sentence-transformers>=2.2
+
+# Tests
+pytest>=7
+xlsxwriter>=3.0  # writes the Excel fixtures used by the ingestion tests
