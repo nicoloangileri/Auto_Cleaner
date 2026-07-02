@@ -204,17 +204,35 @@ def detect_header(sample: str, delimiter: str) -> bool:
     fooled by short names over uniform-width string columns, e.g. ``a,b``).
     """
     rows = [r for r in csv.reader(sample.splitlines(), delimiter=delimiter) if r]
-    if len(rows) >= 2:
-        first, second = rows[0], rows[1]
-        if _numeric_share(first) == 0.0 and _numeric_share(second) > 0.0:
+    # Compare the candidate header against the first row that actually carries
+    # data — leading blank rows (",,") would otherwise vote "no header".
+    data_rows = [r for r in rows[1:] if any(c.strip() for c in r)]
+    if rows and not data_rows:
+        return True  # a lone non-empty row is a header, not a dataset
+    if rows and data_rows:
+        first = rows[0]
+        if _numeric_share(first) == 0.0 and _numeric_share(data_rows[0]) > 0.0:
             return True
+        # Names rule: a fully populated, distinct, non-numeric first row whose
+        # values never reappear in their own columns is a header — even when
+        # the data below is too sparse or too textual for the Sniffer.
+        if all(c.strip() for c in first) and len(set(first)) == len(first) \
+                and _numeric_share(first) == 0.0:
+            padded = [r + [""] * (len(first) - len(r)) for r in data_rows]
+            columns = list(zip(*padded)) if padded else []
+            reappears = any(
+                first[i] in columns[i]
+                for i in range(min(len(first), len(columns)))
+            )
+            if not reappears:
+                return True
     try:
         return csv.Sniffer().has_header(sample)
     except csv.Error:
         pass
-    if len(rows) < 2:
+    if not rows or not data_rows:
         return True
-    first, second = rows[0], rows[1]
+    first, second = rows[0], data_rows[0]
     # Header likely when the first row is far less numeric than the next row.
     return _numeric_share(first) + 0.25 < _numeric_share(second) or _numeric_share(first) == 0.0
 

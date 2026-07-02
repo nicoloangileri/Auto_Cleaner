@@ -257,7 +257,7 @@ pytest -q
 | Opt-in (advanced) | **Optuna** hyper-parameter tuning (`--tune`); **A/B test + observational causal IPW** (`--treatment`/`--outcome`, with prominent caveats — never auto-run); neural text embeddings |
 | Extended statistics | robust means (geometric/harmonic/trimmed/winsorized/MAD/Huber); rank, partial & categorical associations (Spearman/Kendall/partial/Cramer's V/eta); distribution fitting (AIC/BIC); multivariate (Mahalanobis, clustering, MANOVA, UMAP); classical NLP (LDA topics + sentiment); Bayes factors; survival (Kaplan-Meier, Cox); survey reliability (Cronbach's α + design weights) |
 | Reports & outputs | clean dataset (Parquet/CSV/Arrow); interactive offline **HTML** + **Markdown** + **PDF** reports; machine-readable **results.json**; standalone PNG charts; R companion + DuckDB SQL profiling |
-| Hardening | typed input/schema validation, YAML data contracts, 100 tests, GitHub Actions CI |
+| Hardening | typed input/schema validation, YAML data contracts, 107 tests (incl. property-based ingestion fuzzing via Hypothesis) at 78% line coverage, GitHub Actions CI; validated unmodified on 10 real-world datasets across 9 domains (see the paper) |
 | Formats & scale | CSV/TSV (any delimiter), **Excel** (.xlsx/.xlsm/.xls via calamine), Parquet, JSON/NDJSON, DuckDB SQL, **FITS** (astronomy), **netCDF** (climate, via xarray); optional streaming / out-of-core ingestion for larger-than-memory data |
 
 ## Scope & honest limitations

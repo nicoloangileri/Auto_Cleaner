@@ -56,4 +56,6 @@ PyYAML>=6.0
 
 # Tests
 pytest>=7
+hypothesis>=6  # property-based ingestion fuzzing
+pytest-cov>=5
 xlsxwriter>=3.0  # writes the Excel fixtures used by the ingestion tests
