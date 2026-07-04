@@ -288,6 +288,11 @@ and modelling steps are where a human takes over.
 - [CASE_STUDY.md](CASE_STUDY.md) — portfolio-style write-up (problem, approach, real results).
 - [ARCHITECTURE.md](ARCHITECTURE.md) — design + the honest single-machine ceiling and scaling path.
 
+## Development note
+
+Built with AI-assisted engineering. Every design decision, formula, and
+validation was reviewed, understood, and is owned by the author.
+
 ## License
 
 MIT.
