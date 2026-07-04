@@ -32,7 +32,10 @@ jobs:
 
       - name: Smoke-test the CLI
         run: |
+          # raw_cars.csv is committed; generate_raw.py keeps it if vega_datasets
+          # is absent. --no-png avoids the headless-Chrome dependency (kaleido)
+          # while still exercising PDF generation.
           python examples/generate_raw.py
           python -m auto_cleaner -i examples/data/raw_cars.csv \
-            -o /tmp/clean.parquet --target Miles_per_Gallon --quiet
+            -o /tmp/clean.parquet --target Miles_per_Gallon --no-png --quiet
           test -f /tmp/clean_report.pdf

@@ -22,7 +22,19 @@ OUT = Path(__file__).parent / "data" / "raw_cars.csv"
 
 
 def main() -> None:
-    from vega_datasets import data  # local, offline dataset bundle
+    try:
+        from vega_datasets import data  # optional: bundled auto-mpg dataset
+    except ImportError:
+        # vega_datasets is an example-only convenience. A copy of the raw CSV
+        # already ships in the repo, so if the package is absent we keep the
+        # committed file rather than failing (this is what CI relies on).
+        if OUT.exists():
+            print(f"vega_datasets not installed — using committed dataset at {OUT}")
+            return
+        raise SystemExit(
+            "vega_datasets not installed and no committed dataset found; "
+            "install it with `pip install vega-datasets` to regenerate."
+        )
 
     df = pl.from_pandas(data.cars())
     # Keep the date as a clean ISO *date* string in the raw export (no time part).
