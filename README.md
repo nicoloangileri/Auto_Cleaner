@@ -293,7 +293,7 @@ and modelling steps are where a human takes over.
 This project was built with AI-assisted engineering. Its architecture,
 statistical methods, and validation strategy were designed, reviewed, and are
 fully understood and owned by the author — the AI served as an implementation
-partner, not a substitute for judgement.
+partner, it really helped me debugging and fix issues, not a substitute for judgement.
 
 ## License
 
