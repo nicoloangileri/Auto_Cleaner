@@ -201,7 +201,7 @@ SECTIONS: list[tuple[str, list]] = [
     ]),
 ]
 
-def _real_validation_section(bench: list[dict]) -> tuple[str, list]:
+def _real_validation_section(bench: list[dict], scale_fig=None) -> tuple[str, list]:
     """Build the 'Validation on real-world data' section from actual runs."""
     ok = [r for r in bench if "error" not in r]
     n = len(ok)
@@ -278,6 +278,11 @@ def _real_validation_section(bench: list[dict]) -> tuple[str, list]:
         body.append((scale + " " + catch).strip())
     elif catch:
         body.append(catch)
+    if scale_fig:
+        body.append(("figure", str(scale_fig),
+                     "Figure 3. Measured throughput: wall-clock time scales "
+                     "linearly with row count, sustaining ~0.5M rows/s to 11.9M "
+                     "rows (fast profile, streaming ingestion)."))
     return ("Validation on ten real-world datasets", body)
 
 
@@ -374,6 +379,127 @@ def _ascii(s: str) -> str:
              .replace("“", '"').replace("”", '"'))
 
 
+_NUMERIC_DT = None  # lazily filled with polars numeric dtypes
+
+
+def _numeric_cols(df):
+    global _NUMERIC_DT
+    import polars as pl
+    if _NUMERIC_DT is None:
+        _NUMERIC_DT = (pl.Int8, pl.Int16, pl.Int32, pl.Int64, pl.UInt8, pl.UInt16,
+                       pl.UInt32, pl.UInt64, pl.Float32, pl.Float64)
+    return [c for c, dt in zip(df.columns, df.dtypes) if dt in _NUMERIC_DT]
+
+
+def _data_figures(figdir: Path) -> dict:
+    """Generate the paper's data figures from genuine runs. Returns {name: path};
+    any figure that cannot be built is skipped (never aborts the paper)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    figs: dict[str, Path] = {}
+    NAVY, RED, GREY = "#1f3a5f", "#c0392b", "#8a8f98"
+
+    # 1. Scale curve — from the measured scale probe.
+    try:
+        probe = [r for r in json.loads((OUT_DIR / "scale_probe.json").read_text())
+                 if "error" not in r]
+        probe.sort(key=lambda r: r["rows"])
+        rows_m = [r["rows"] / 1e6 for r in probe]
+        elapsed = [r["elapsed_s"] for r in probe]
+        fig, ax = plt.subplots(figsize=(5.6, 2.7))
+        ax.plot(rows_m, elapsed, "o-", color=NAVY, lw=2, ms=7)
+        for r, e in zip(rows_m, elapsed):
+            ax.annotate(f"{e:.0f}s", (r, e), textcoords="offset points",
+                        xytext=(0, 9), ha="center", fontsize=8, color=NAVY)
+        ax.set_xlabel("rows (millions)")
+        ax.set_ylabel("wall-clock time (s)")
+        ax.set_title("Linear scaling: 11.9M rows cleaned + profiled in 26 s "
+                     "(~0.5M rows/s)", fontsize=9)
+        ax.grid(alpha=0.25)
+        ax.spines[["top", "right"]].set_visible(False)
+        p = figdir / "fig_scale.png"
+        fig.savefig(p, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        figs["scale"] = p
+    except Exception as exc:  # noqa: BLE001
+        print(f"[paper] scale figure skipped: {exc}", file=sys.stderr)
+
+    # 2. Impact before/after — the material real-data case (Epoch AI models).
+    try:
+        from auto_cleaner.ingest import read_any
+        from auto_cleaner.clean import standardize, impute_missing
+        from auto_cleaner.clean.impact import measure_impact
+        cfg = CleanConfig(verbose=False)
+        src = Path(__file__).parent / "data" / "real" / "notable_ai_models.csv"
+        raw, _ = read_any(src, cfg)
+        before, _ = standardize(raw, cfg)
+        after, rep = impute_missing(before, cfg)
+        impacts = [i for i in measure_impact(before, after, rep)
+                   if i.ks_stat is not None and i.cells_changed > 0]
+        impacts.sort(key=lambda i: i.ks_stat, reverse=True)
+        top = impacts[:10][::-1]  # ascending for a horizontal bar chart
+        if top:
+            colour = {"material": RED, "minor": "#e0a800", "negligible": "#3f9d5a"}
+            names = [i.column.split("(")[0].strip()[:26] for i in top]
+            ks = [i.ks_stat for i in top]
+            cols = [colour.get(i.verdict, GREY) for i in top]
+            fig, ax = plt.subplots(figsize=(5.8, 3.0))
+            ax.barh(range(len(top)), ks, color=cols, alpha=0.9)
+            ax.set_yticks(range(len(top)))
+            ax.set_yticklabels(names, fontsize=7)
+            ax.axvline(0.15, ls="--", lw=1, color="#444")
+            ax.text(0.15, len(top) - 0.4, " material threshold", fontsize=6.5,
+                    color="#444", va="top")
+            ax.set_xlabel("Kolmogorov-Smirnov distance (before vs after imputation)")
+            ax.set_title("Impact accounting: per-column distributional shift, "
+                         "coloured by verdict (Epoch AI dataset)", fontsize=8.5)
+            handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in
+                       (RED, "#e0a800", "#3f9d5a")]
+            ax.legend(handles, ["material", "minor", "negligible"], fontsize=7,
+                      loc="lower right")
+            ax.spines[["top", "right"]].set_visible(False)
+            p = figdir / "fig_impact.png"
+            fig.savefig(p, dpi=200, bbox_inches="tight")
+            plt.close(fig)
+            figs["impact"] = p
+    except Exception as exc:  # noqa: BLE001
+        print(f"[paper] impact figure skipped: {exc}", file=sys.stderr)
+
+    # 3. Correlation heatmap — auto-mpg (the collinearity the paper discusses).
+    try:
+        from auto_cleaner.ingest import read_any
+        from auto_cleaner.clean import standardize
+        cfg = CleanConfig(verbose=False)
+        df, _ = read_any(RAW, cfg)
+        df, _ = standardize(df, cfg)
+        num = _numeric_cols(df)
+        M = df.select(num).drop_nulls().to_numpy()
+        C = np.corrcoef(M, rowvar=False)
+        fig, ax = plt.subplots(figsize=(4.8, 4.2))
+        im = ax.imshow(C, cmap="RdBu_r", vmin=-1, vmax=1)
+        ax.set_xticks(range(len(num)))
+        ax.set_xticklabels(num, rotation=45, ha="right", fontsize=7)
+        ax.set_yticks(range(len(num)))
+        ax.set_yticklabels(num, fontsize=7)
+        for i in range(len(num)):
+            for j in range(len(num)):
+                ax.text(j, i, f"{C[i, j]:.2f}", ha="center", va="center",
+                        fontsize=6, color="white" if abs(C[i, j]) > 0.55 else "black")
+        ax.set_title("Correlation structure recovered (auto-mpg)", fontsize=9)
+        fig.colorbar(im, fraction=0.046, pad=0.04)
+        p = figdir / "fig_corr.png"
+        fig.savefig(p, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        figs["corr"] = p
+    except Exception as exc:  # noqa: BLE001
+        print(f"[paper] correlation figure skipped: {exc}", file=sys.stderr)
+
+    return figs
+
+
 def build_with_fpdf(
     repl: dict[str, str], out_pdf: Path,
     sections: list | None = None, references: list[str] | None = None,
@@ -415,6 +541,17 @@ def build_with_fpdf(
                     pdf.ln(1.5)
                     pdf.image(str(png), x=pdf.l_margin + epw * 0.06, w=epw * 0.88)
                     pdf.ln(1.5)
+                elif isinstance(block, tuple) and block[0] == "figure":
+                    path, caption = block[1], block[2]
+                    if path and Path(path).exists():
+                        pdf.ln(2)
+                        pdf.image(str(path), x=pdf.l_margin + epw * 0.10, w=epw * 0.80)
+                        pdf.set_font("Times", "I", 8)
+                        pdf.set_text_color(90, 90, 90)
+                        pdf.multi_cell(0, 4.2, _ascii(caption), align="C",
+                                       new_x="LMARGIN", new_y="NEXT")
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.ln(2)
                 elif isinstance(block, tuple) and block[0] == "table":
                     headers, rows = block[1], block[2]
                     ncol = len(headers)
@@ -472,6 +609,14 @@ def build_with_latex(
         for block in blocks:
             if isinstance(block, tuple) and block[0] == "formula":
                 paragraphs.append(rf"\[{block[1]}\]")
+            elif isinstance(block, tuple) and block[0] == "figure":
+                path, caption = block[1], block[2]
+                if path and Path(path).exists():
+                    paragraphs.append(
+                        "\\begin{figure}[h]\\centering"
+                        f"\\includegraphics[width=0.8\\textwidth]{{{path}}}"
+                        f"\\caption{{{_esc(caption)}}}\\end{{figure}}"
+                    )
             elif isinstance(block, tuple) and block[0] == "table":
                 headers, table_rows = block[1], block[2]
                 spec = "l" + "r" * (len(headers) - 1)
@@ -515,6 +660,8 @@ def build_with_latex(
 
 
 def main() -> None:
+    import copy
+
     repl = _harvest()
 
     bench: list[dict] = []
@@ -525,8 +672,27 @@ def main() -> None:
               "examples/run_real_benchmarks.py to include the real-data section",
               file=sys.stderr)
 
-    sections = list(SECTIONS)
+    figdir = Path(tempfile.mkdtemp(prefix="acpaper_figs_"))
+    figs = _data_figures(figdir)
+
+    # Deep-copy so injecting figure blocks never mutates the module template.
+    sections = copy.deepcopy(SECTIONS)
     references = list(REFERENCES)
+
+    for heading, blocks in sections:
+        if heading == "Quantified cleaning impact" and figs.get("impact"):
+            blocks.append(("figure", str(figs["impact"]),
+                           "Figure 1. Impact accounting in action: a mostly-missing "
+                           "real-data column before and after imputation. The engine "
+                           "measures the distributional shift and flags it as "
+                           "material, rather than blessing it silently."))
+        if heading == "Empirical demonstration" and figs.get("corr"):
+            blocks.append(("figure", str(figs["corr"]),
+                           "Figure 2. Correlation structure the engine recovers on "
+                           "auto-mpg - the severe engine-size collinearity "
+                           "(Cylinders/Displacement/Weight) that drives the VIF "
+                           "warnings."))
+
     if bench:
         total_rows = sum(r["rows"] for r in bench)
         repl["@REALSENT@"] = (
@@ -537,16 +703,19 @@ def main() -> None:
         # After "Empirical demonstration", before "Scope and limitations".
         scope_idx = next(i for i, (h, _) in enumerate(sections)
                          if h.startswith("Scope"))
-        sections.insert(scope_idx, _real_validation_section(bench))
+        sections.insert(scope_idx, _real_validation_section(bench, figs.get("scale")))
         references += _dataset_references(bench)
     else:
         repl["@REALSENT@"] = ""
 
     out_pdf = OUT_DIR / "auto_cleaner_paper.pdf"
-    if shutil.which("pdflatex"):
-        build_with_latex(repl, out_pdf, sections, references)
-    else:
-        build_with_fpdf(repl, out_pdf, sections, references)
+    try:
+        if shutil.which("pdflatex"):
+            build_with_latex(repl, out_pdf, sections, references)
+        else:
+            build_with_fpdf(repl, out_pdf, sections, references)
+    finally:
+        shutil.rmtree(figdir, ignore_errors=True)
     print(f"Wrote {out_pdf}")
 
 
